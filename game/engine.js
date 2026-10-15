@@ -19,16 +19,33 @@ function expNext(level) {
   return 25 * level;
 }
 
-// Sát thương theo công thức kinh điển, có STAB 1.5 và khắc hệ
+// Hệ số theo cấp chỉ số (-3..+3): công thức chuẩn
+function stageMult(s) {
+  return s >= 0 ? (2 + s) / 2 : 2 / (2 - s);
+}
+function effAtk(f) { return Math.floor(f.stats.atk * stageMult((f.stages || {}).atk || 0)); }
+function effDef(f) { return Math.floor(f.stats.def * stageMult((f.stages || {}).def || 0)); }
+function effSpd(f) { return Math.floor(f.stats.spd * stageMult((f.stages || {}).spd || 0)); }
+
+// Đổi cấp chỉ số, kẹp -3..+3, trả về mức thay đổi thực tế
+function applyStages(f, stat, delta) {
+  f.stages = f.stages || { atk: 0, def: 0, spd: 0 };
+  const before = f.stages[stat] || 0;
+  f.stages[stat] = Math.max(-3, Math.min(3, before + delta));
+  return f.stages[stat] - before;
+}
+
+// Sát thương theo công thức kinh điển, có STAB 1.5, khắc hệ và chí mạng
 function calcDamage(att, def, moveId) {
   const mv = MOVES[moveId];
   if (!mv) return { miss: true, dmg: 0, eff: 1 };
   if (Math.random() * 100 > mv.acc) return { miss: true, dmg: 0, eff: 1 };
   const stab = mv.type === att.type ? 1.5 : 1;
   const eff = (CHART[mv.type] && CHART[mv.type][def.type]) || 1;
-  const base = Math.floor(Math.floor((2 * att.level / 5 + 2) * mv.power * att.stats.atk / def.stats.def) / 50) + 2;
+  const crit = Math.random() < 0.1;
+  const base = Math.floor(Math.floor((2 * att.level / 5 + 2) * mv.power * effAtk(att) / effDef(def)) / 50) + 2;
   const rand = 0.85 + Math.random() * 0.15;
-  return { miss: false, dmg: Math.max(1, Math.floor(base * stab * eff * rand)), eff };
+  return { miss: false, dmg: Math.max(1, Math.floor(base * stab * eff * rand * (crit ? 1.5 : 1))), eff, crit };
 }
 
 function effText(eff) {
@@ -64,4 +81,4 @@ function pickWild() {
   return { speciesId: e.species, level: e.min };
 }
 
-module.exports = { calcStats, expNext, calcDamage, effText, catchChance, rollCatch, pickWild };
+module.exports = { calcStats, expNext, calcDamage, effText, catchChance, rollCatch, pickWild, stageMult, effAtk, effDef, effSpd, applyStages };

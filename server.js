@@ -87,7 +87,8 @@ function fighterFromPet(pet) {
     petId: pet.id, speciesId: pet.speciesId, name: sp.name, type: sp.type,
     level: pet.level, exp: pet.exp || 0, stats,
     maxHp: stats.hp, hp: Math.min(pet.hp, stats.hp),
-    moves: (pet.moves || sp.moves).slice()
+    moves: (pet.moves || sp.moves).slice(),
+    stages: { atk: 0, def: 0, spd: 0 }
   };
 }
 
@@ -98,7 +99,8 @@ function makeWild() {
   return {
     petId: null, speciesId, name: sp.name, type: sp.type,
     level, exp: 0, stats, maxHp: stats.hp, hp: stats.hp,
-    moves: sp.moves.slice(), wild: true
+    moves: sp.moves.slice(), wild: true,
+    stages: { atk: 0, def: 0, spd: 0 }
   };
 }
 
@@ -300,31 +302,62 @@ app.post('/api/game/battle', needLogin, async (req, res) => {
     const user = await store.findUserById(userId);
     const { action } = req.body || {};
     const log = [];
+    const events = []; // hiệu ứng cho client: hit/miss/buff/debuff/heal/faint/trap/switch
     const me = () => b.party[b.activeIdx];
     const foe = b.wild;
+    const STAT_NAMES = { atk: 'Tấn công', def: 'Phòng thủ', spd: 'Tốc độ' };
 
-    function foeStrike(target) {
-      const mvId = foe.moves[Math.floor(Math.random() * foe.moves.length)];
+    // Dùng 1 chiêu (sát thương hoặc hiệu ứng), đẩy event cho client diễn hoạt
+    function useMove(att, def, mvId, by) {
       const mv = D.MOVES[mvId];
-      const r = eng.calcDamage(foe, target, mvId);
+      const to = by === 'me' ? 'foe' : 'me';
+      if (mv.effect) {
+        if (Math.random() * 100 > mv.acc) {
+          log.push(`${att.name} dùng ${mv.name} nhưng thất bại!`);
+          events.push({ t: 'miss', by, moveName: mv.name });
+          return;
+        }
+        const target = mv.effect.target === 'self' ? att : def;
+        const chg = eng.applyStages(target, mv.effect.stat, mv.effect.stages);
+        const sname = STAT_NAMES[mv.effect.stat];
+        if (chg === 0) {
+          log.push(`${att.name} dùng ${mv.name} nhưng không có tác dụng!`);
+          events.push({ t: 'nostat', by });
+        } else {
+          const dir = chg > 0 ? 'tăng' : 'giảm';
+          log.push(`${att.name} dùng ${mv.name}: ${target.name} ${sname} ${dir}!`);
+          events.push({
+            t: chg > 0 ? 'buff' : 'debuff', by,
+            to: mv.effect.target === 'self' ? by : to,
+            stat: mv.effect.stat, moveName: mv.name
+          });
+        }
+        return;
+      }
+      const r = eng.calcDamage(att, def, mvId);
       if (r.miss) {
-        log.push(`${foe.name} dùng ${mv.name} nhưng đánh trượt!`);
+        log.push(`${att.name} dùng ${mv.name} nhưng đánh trượt!`);
+        events.push({ t: 'miss', by, moveName: mv.name });
       } else {
-        target.hp = Math.max(0, target.hp - r.dmg);
-        log.push(`${foe.name} dùng ${mv.name}, gây ${r.dmg} sát thương cho ${target.name}!${eng.effText(r.eff)}`);
+        def.hp = Math.max(0, def.hp - r.dmg);
+        log.push(`${att.name} dùng ${mv.name}, gây ${r.dmg} sát thương cho ${def.name}!${r.crit ? ' (Chí mạng!)' : ''}${eng.effText(r.eff)}`);
+        events.push({
+          t: 'hit', by, to, dmg: r.dmg, crit: r.crit, eff: r.eff,
+          moveName: mv.name, moveType: mv.type,
+          moveColor: D.TYPE_COLORS[mv.type] || '#fff',
+          toHp: def.hp, maxHp: def.maxHp
+        });
+        if (def.hp <= 0) events.push({ t: 'faint', who: to });
       }
     }
 
+    function foeStrike(target) {
+      const mvId = foe.moves[Math.floor(Math.random() * foe.moves.length)];
+      useMove(foe, target, mvId, 'foe');
+    }
+
     function meStrike(mvId) {
-      const m = me();
-      const mv = D.MOVES[mvId];
-      const r = eng.calcDamage(m, foe, mvId);
-      if (r.miss) {
-        log.push(`${m.name} dùng ${mv.name} nhưng đánh trượt!`);
-        return;
-      }
-      foe.hp = Math.max(0, foe.hp - r.dmg);
-      log.push(`${m.name} dùng ${mv.name}, gây ${r.dmg} sát thương cho ${foe.name}!${eng.effText(r.eff)}`);
+      useMove(me(), foe, mvId, 'me');
     }
 
     // true nếu pet ra trận đã gục (đã xử lý thua / yêu cầu đổi)
@@ -368,7 +401,7 @@ app.post('/api/game/battle', needLogin, async (req, res) => {
       if (m.hp <= 0) return res.status(400).json({ error: 'Pet đã gục!' });
       const mvId = req.body.move;
       if (!m.moves.includes(mvId)) return res.status(400).json({ error: 'Chiêu thức không hợp lệ.' });
-      if (m.stats.spd >= foe.stats.spd) {
+      if (eng.effSpd(m) >= eng.effSpd(foe)) {
         meStrike(mvId);
         if (foe.hp <= 0) await endWin();
         else { foeStrike(m); await checkMeFaint(); }
@@ -387,6 +420,7 @@ app.post('/api/game/battle', needLogin, async (req, res) => {
         return res.status(400).json({ error: 'Hết bẫy rồi! Ghé cửa hàng (nhà M) mua thêm nhé.' });
       await store.updateUser(userId, { items: { ...u2.items, [kind]: u2.items[kind] - 1 } });
       log.push(`Bạn ném ${D.ITEM_NAMES[kind]}!`);
+      events.push({ t: 'trap', by: 'me' });
       if (eng.rollCatch(foe.speciesId, foe.hp, foe.maxHp, kind)) {
         b.over = true; b.result = 'caught';
         b.rewards = await grantRewards(b, user, log);
@@ -418,6 +452,7 @@ app.post('/api/game/battle', needLogin, async (req, res) => {
       await store.updateUser(userId, { items: { ...u2.items, potion: u2.items.potion - 1 } });
       m.hp = Math.min(m.maxHp, m.hp + 60);
       log.push(`Bạn cho ${m.name} uống Bình Máu (+60 HP)!`);
+      events.push({ t: 'heal', by: 'me', to: 'me', amount: 60, toHp: m.hp, maxHp: m.maxHp });
       foeStrike(m);
       await checkMeFaint();
     } else if (action === 'switch') {
@@ -429,6 +464,7 @@ app.post('/api/game/battle', needLogin, async (req, res) => {
       b.activeIdx = idx;
       b.needSwitch = false;
       log.push(`Ra trận nào, ${target.name}!`);
+      events.push({ t: 'switch', by: 'me', to: 'me' });
       if (!wasForced) { foeStrike(target); await checkMeFaint(); }
     } else if (action === 'run') {
       if (Math.random() < 0.7) {
@@ -446,6 +482,7 @@ app.post('/api/game/battle', needLogin, async (req, res) => {
 
     const out = {
       log,
+      events,
       over: b.over,
       player: fighterView(b.party[b.activeIdx]),
       party: b.party.map(f => ({ name: f.name, level: f.level, hp: f.hp, maxHp: f.maxHp })),

@@ -44,7 +44,14 @@ const MOVES = {
   'tia-dien':  { name: 'Tia Lửa Điện', type: 'dien',  power: 40, acc: 100 },
   'sam-set':   { name: 'Sấm Sét',      type: 'dien',  power: 70, acc: 90  },
   'bong-ma':   { name: 'Bóng Ma',      type: 'quy',   power: 45, acc: 100 },
-  'hon-doat':  { name: 'Hồn Đoạt',     type: 'quy',   power: 65, acc: 95  }
+  'hon-doat':  { name: 'Hồn Đoạt',     type: 'quy',   power: 65, acc: 95  },
+  // --- Chiêu hiệu ứng (power 0): tăng/giảm chỉ số theo cấp (-3..+3) ---
+  'cuong-hoa': { name: 'Cuồng Hỏa',  type: 'hoa',   power: 0, acc: 100, effect: { stat: 'atk', stages: 1,  target: 'self' } },
+  'thiet-bich':{ name: 'Thiết Bích', type: 'kim',   power: 0, acc: 100, effect: { stat: 'def', stages: 1,  target: 'self' } },
+  'than-hanh': { name: 'Thần Hành',  type: 'phong', power: 0, acc: 100, effect: { stat: 'spd', stages: 1,  target: 'self' } },
+  'suy-yeu':   { name: 'Suy Yếu',    type: 'quy',   power: 0, acc: 90,  effect: { stat: 'atk', stages: -1, target: 'foe'  } },
+  'pha-giap':  { name: 'Phá Giáp',   type: 'kim',   power: 0, acc: 90,  effect: { stat: 'def', stages: -1, target: 'foe'  } },
+  'tri-mang':  { name: 'Trì Mạng',   type: 'tho',   power: 0, acc: 90,  effect: { stat: 'spd', stages: -1, target: 'foe'  } }
 };
 
 // Loài pet: id -> { name, type, base:{hp,atk,def,spd}, catchRate, expYield, moves, evo?, desc }
@@ -52,7 +59,7 @@ const SPECIES = {
   // --- 3 pet khởi đầu ---
   'hoa-ho': {
     name: 'Hỏa Hồ', type: 'hoa', base: { hp: 45, atk: 55, def: 40, spd: 60 },
-    expYield: 64, moves: ['lua-nho', 'tra-thep', 'gio-loc'],
+    expYield: 64, moves: ['lua-nho', 'tra-thep', 'gio-loc', 'cuong-hoa'],
     evo: { to: 'viem-ho-vuong', at: 16 },
     desc: 'Chú cáo lửa tinh nghịch, chùm đuôi lúc nào cũng phừng phừng cháy.'
   },
@@ -63,7 +70,7 @@ const SPECIES = {
   },
   'thuy-quy': {
     name: 'Thủy Quy', type: 'thuy', base: { hp: 55, atk: 50, def: 65, spd: 40 },
-    expYield: 64, moves: ['phun-nuoc', 'dao-dat', 'day-leo'],
+    expYield: 64, moves: ['phun-nuoc', 'dao-dat', 'day-leo', 'thiet-bich'],
     evo: { to: 'hai-quy-than', at: 16 },
     desc: 'Rùa con hiền lành, trên mai vẽ hình sóng nước uốn lượn.'
   },
@@ -74,7 +81,7 @@ const SPECIES = {
   },
   'moc-mieu': {
     name: 'Mộc Miêu', type: 'moc', base: { hp: 50, atk: 55, def: 50, spd: 65 },
-    expYield: 64, moves: ['day-leo', 'tra-thep', 'phun-nuoc'],
+    expYield: 64, moves: ['day-leo', 'tra-thep', 'phun-nuoc', 'than-hanh'],
     evo: { to: 'lam-mieu-vuong', at: 16 },
     desc: 'Mèo rừng nhanh nhẹn, đôi tai hình chiếc lá xanh mướt.'
   },
@@ -86,7 +93,7 @@ const SPECIES = {
   // --- Pet hoang ---
   'thiet-trung': {
     name: 'Thiết Trùng', type: 'kim', base: { hp: 50, atk: 60, def: 70, spd: 35 },
-    catchRate: 0.45, expYield: 60, moves: ['tra-thep', 'dao-dat', 'day-leo'],
+    catchRate: 0.45, expYield: 60, moves: ['tra-thep', 'dao-dat', 'pha-giap'],
     evo: { to: 'cuong-giap-trung', at: 14 },
     desc: 'Bọ sắt cứng cáp, lớp vỏ sáng loáng như thép được mài.'
   },
@@ -97,7 +104,7 @@ const SPECIES = {
   },
   'phong-dieu': {
     name: 'Phong Điểu', type: 'phong', base: { hp: 45, atk: 55, def: 40, spd: 80 },
-    catchRate: 0.45, expYield: 58, moves: ['gio-loc', 'tra-thep', 'tia-dien'],
+    catchRate: 0.45, expYield: 58, moves: ['gio-loc', 'tra-thep', 'tri-mang'],
     evo: { to: 'bao-dieu', at: 14 },
     desc: 'Chim én của gió, bay nhanh hơn cả một cái chớp mắt.'
   },
@@ -130,7 +137,7 @@ const SPECIES = {
   },
   'quy-hoa': {
     name: 'Quỷ Hỏa', type: 'quy', base: { hp: 50, atk: 65, def: 50, spd: 70 },
-    catchRate: 0.3, expYield: 85, moves: ['bong-ma', 'tia-dien', 'gio-loc'],
+    catchRate: 0.3, expYield: 85, moves: ['bong-ma', 'tia-dien', 'suy-yeu'],
     evo: { to: 'ma-hoa-quy', at: 20 },
     desc: 'Đốm lửa ma trơi lập lòe, rất thích trêu chọc người đi đêm.'
   },

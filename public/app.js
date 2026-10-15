@@ -417,6 +417,7 @@ function setPetSprite(imgEl, src) {
 
 function renderBattle() {
   const E = B.enemy, P = B.player;
+  document.querySelectorAll('.fighter').forEach(f => f.classList.remove('fainted'));
   setPetSprite($('b-enemy-sprite'), E.sprite);
   $('b-enemy-name').textContent = E.name;
   $('b-enemy-lv').textContent = 'Lv' + E.level;
@@ -501,15 +502,176 @@ function setBattleBusy(v) {
   document.querySelectorAll('.btn-battle').forEach(b => b.disabled = v);
 }
 
+// ---------------- HIỆU ỨNG TRẬN ĐẤU ----------------
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const STAT_NAMES_VN = { atk: 'Tấn công', def: 'Phòng thủ', spd: 'Tốc độ' };
+
+function arenaPos(fighterEl) {
+  const a = document.querySelector('.arena').getBoundingClientRect();
+  const r = fighterEl.getBoundingClientRect();
+  return { x: r.left - a.left + r.width / 2, y: r.top - a.top + r.height / 2 };
+}
+
+// Chùm hạt vỡ ra khi trúng đòn
+function burst(x, y, color, n = 10) {
+  const arena = document.querySelector('.arena');
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('div');
+    s.className = 'particle';
+    s.style.background = color;
+    s.style.left = x + 'px'; s.style.top = y + 'px';
+    arena.appendChild(s);
+    const ang = Math.random() * Math.PI * 2, dist = 30 + Math.random() * 55;
+    const dx = Math.cos(ang) * dist, dy = Math.sin(ang) * dist;
+    s.animate([
+      { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.15)`, opacity: 0 }
+    ], { duration: 450 + Math.random() * 350, easing: 'cubic-bezier(.2,.7,.3,1)' }).onfinish = () => s.remove();
+  }
+}
+
+// Chữ bay (sát thương, TRƯỢT, buff...)
+function floatText(x, y, text, cls = '') {
+  const arena = document.querySelector('.arena');
+  const el = document.createElement('div');
+  el.className = 'dmg-num ' + cls;
+  el.textContent = text;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  arena.appendChild(el);
+  el.animate([
+    { transform: 'translate(-50%,0) scale(.6)', opacity: 0 },
+    { transform: 'translate(-50%,-16px) scale(1.15)', opacity: 1, offset: .25 },
+    { transform: 'translate(-50%,-72px) scale(1)', opacity: 0 }
+  ], { duration: 950, easing: 'ease-out' }).onfinish = () => el.remove();
+}
+
+// Tia sáng buff (bay lên) / debuff (rơi xuống)
+function sparkles(x, y, color, up = true, n = 12) {
+  const arena = document.querySelector('.arena');
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('div');
+    s.className = 'particle spark';
+    s.style.background = color;
+    s.style.left = (x + (Math.random() - .5) * 70) + 'px';
+    s.style.top = (y + (Math.random() - .5) * 40) + 'px';
+    arena.appendChild(s);
+    const dy = up ? -(60 + Math.random() * 60) : (60 + Math.random() * 60);
+    s.animate([
+      { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
+      { transform: `translate(-50%, calc(-50% + ${dy}px)) scale(.2)`, opacity: 0 }
+    ], { duration: 700 + Math.random() * 400, easing: 'ease-out' }).onfinish = () => s.remove();
+  }
+}
+
+function setHpBar(who, toHp, maxHp) {
+  const fill = who === 'me' ? $('b-player-hp') : $('b-enemy-hp');
+  const text = who === 'me' ? $('b-player-hptext') : $('b-enemy-hptext');
+  const pct = Math.max(0, Math.round(toHp / maxHp * 100));
+  fill.style.width = pct + '%';
+  fill.className = 'hpfill' + (pct <= 25 ? ' low' : pct <= 50 ? ' mid' : '');
+  text.textContent = `${toHp}/${maxHp}`;
+}
+
+async function playHitFx(ev) {
+  const foeEl = document.querySelector('.fighter.foe');
+  const meEl = document.querySelector('.fighter.me');
+  const atkEl = ev.by === 'me' ? meEl : foeEl;
+  const tgtEl = ev.to === 'me' ? meEl : foeEl;
+  const spr = tgtEl.querySelector('.psprite');
+  const ap = arenaPos(atkEl);
+  floatText(ap.x, ap.y - 60, ev.moveName, 'movename');
+  atkEl.classList.add(ev.by === 'me' ? 'lunge-me' : 'lunge-foe');
+  await wait(320);
+  atkEl.classList.remove('lunge-me', 'lunge-foe');
+  const { x, y } = arenaPos(tgtEl);
+  burst(x, y, ev.moveColor, ev.crit ? 18 : 11);
+  spr.classList.add('flash');
+  tgtEl.classList.add('hit-shake');
+  floatText(x, y - 46, (ev.crit ? 'CHÍ MẠNG ' : '') + '-' + ev.dmg, ev.crit ? 'crit' : '');
+  if (ev.eff > 1) floatText(x, y - 88, 'SIÊU HIỆU QUẢ!', 'eff-up');
+  else if (ev.eff < 1) floatText(x, y - 88, 'không hiệu quả…', 'eff-down');
+  if (ev.crit || ev.eff > 1) {
+    const arena = document.querySelector('.arena');
+    arena.classList.add('shake');
+    setTimeout(() => arena.classList.remove('shake'), 450);
+  }
+  setHpBar(ev.to, ev.toHp, ev.maxHp);
+  await wait(680);
+  spr.classList.remove('flash');
+  tgtEl.classList.remove('hit-shake');
+}
+
+async function playMissFx(ev) {
+  const tgtEl = document.querySelector(ev.by === 'me' ? '.fighter.foe' : '.fighter.me');
+  const atkEl = document.querySelector(ev.by === 'me' ? '.fighter.me' : '.fighter.foe');
+  const ap = arenaPos(atkEl);
+  if (ev.moveName) floatText(ap.x, ap.y - 60, ev.moveName, 'movename');
+  const { x, y } = arenaPos(tgtEl);
+  floatText(x, y - 40, 'TRƯỢT!', 'miss');
+  await wait(650);
+}
+
+async function playStatFx(ev) {
+  const tgtEl = document.querySelector(ev.to === 'me' ? '.fighter.me' : '.fighter.foe');
+  const atkEl = document.querySelector(ev.by === 'me' ? '.fighter.me' : '.fighter.foe');
+  const ap = arenaPos(atkEl);
+  floatText(ap.x, ap.y - 60, ev.moveName, 'movename');
+  await wait(300);
+  const { x, y } = arenaPos(tgtEl);
+  const isBuff = ev.t === 'buff';
+  sparkles(x, y, isBuff ? '#69f0ae' : '#ce93d8', isBuff, 14);
+  floatText(x, y - 52, `${STAT_NAMES_VN[ev.stat]} ${isBuff ? '↑' : '↓'}`, isBuff ? 'buff' : 'debuff');
+  await wait(800);
+}
+
+async function playHealFx(ev) {
+  const tgtEl = document.querySelector('.fighter.me');
+  const { x, y } = arenaPos(tgtEl);
+  sparkles(x, y, '#69f0ae', true, 12);
+  floatText(x, y - 52, '+' + ev.amount, 'heal');
+  setHpBar('me', ev.toHp, ev.maxHp);
+  await wait(750);
+}
+
+async function playFaintFx(ev) {
+  const tgtEl = document.querySelector(ev.who === 'me' ? '.fighter.me' : '.fighter.foe');
+  tgtEl.classList.add('fainted');
+  await wait(850);
+}
+
+async function playBattleEvents(events) {
+  for (const ev of events || []) {
+    if (ev.t === 'hit') await playHitFx(ev);
+    else if (ev.t === 'miss') await playMissFx(ev);
+    else if (ev.t === 'buff' || ev.t === 'debuff') await playStatFx(ev);
+    else if (ev.t === 'heal') await playHealFx(ev);
+    else if (ev.t === 'faint') await playFaintFx(ev);
+    else if (ev.t === 'trap') {
+      const tgtEl = document.querySelector('.fighter.foe');
+      tgtEl.classList.add('hit-shake');
+      await wait(500);
+      tgtEl.classList.remove('hit-shake');
+    } else if (ev.t === 'switch') {
+      const tgtEl = document.querySelector('.fighter.me');
+      tgtEl.classList.remove('fainted');
+      const { x, y } = arenaPos(tgtEl);
+      burst(x, y, '#ffffff', 12);
+      await wait(400);
+    }
+  }
+}
+
 async function doBattle(body) {
   setBattleBusy(true);
   hideSub();
   try {
     const d = await api('/api/game/battle', { method: 'POST', body });
     if (d.error) { toast(d.error); return; }
-    (d.log || []).forEach(battleLog);
     B = { enemy: d.enemy, player: d.player, party: d.party, needSwitch: d.needSwitch, activeIdx: d.activeIdx };
     renderBattle();
+    await playBattleEvents(d.events); // diễn hoạt đòn đánh trước khi hiện log
+    (d.log || []).forEach(battleLog);
+    renderBattle(); // đồng bộ lại sau hiệu ứng
     await quickRefresh();
     if (d.over) showBattleEnd(d);
     else if (d.needSwitch) showPartySub(true);

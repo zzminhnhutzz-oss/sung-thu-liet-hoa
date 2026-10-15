@@ -102,6 +102,45 @@ body {
 }
 .fcard .pname { color: #fff; font-size: 14px; margin-bottom: 4px; }
 .fcard .lv { color: #ffd54f; }
+
+/* ---- Hiệu ứng trận đấu ---- */
+.hpfill { transition: width .55s ease; }
+.fighter.lunge-me { animation: lungeR .32s ease-out; }
+.fighter.lunge-foe { animation: lungeL .32s ease-out; }
+@keyframes lungeR { 40% { transform: translateX(-46px); } }
+@keyframes lungeL { 40% { transform: translateX(46px); } }
+.fighter.hit-shake { animation: hitShake .45s; }
+@keyframes hitShake {
+  20% { transform: translateX(-9px); } 40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); } 80% { transform: translateX(4px); }
+}
+.fighter .psprite.flash { animation: flashW .45s; }
+@keyframes flashW { 25%, 60% { filter: brightness(2.6) saturate(.4); } }
+.fighter.fainted .psprite { animation: faintSink .8s forwards; }
+@keyframes faintSink { to { transform: translateY(34px); opacity: 0; } }
+.arena.shake { animation: arenaShake .4s; }
+@keyframes arenaShake {
+  25% { transform: translate(-6px, 3px); } 50% { transform: translate(6px, -3px); }
+  75% { transform: translate(-4px, -2px); }
+}
+.dmg-num {
+  position: absolute; font-weight: 900; font-size: 27px; color: #ff5252;
+  text-shadow: 0 2px 0 #000, 0 0 8px rgba(0,0,0,.7);
+  pointer-events: none; z-index: 6; white-space: nowrap;
+}
+.dmg-num.crit { font-size: 34px; color: #ff9800; }
+.dmg-num.miss { color: #fff; font-size: 22px; }
+.dmg-num.movename { color: #fff; font-size: 17px; font-weight: 700; }
+.dmg-num.buff { color: #69f0ae; font-size: 24px; }
+.dmg-num.debuff { color: #ce93d8; font-size: 24px; }
+.dmg-num.heal { color: #69f0ae; font-size: 26px; }
+.dmg-num.eff-up { color: #ffd54f; font-size: 20px; }
+.dmg-num.eff-down { color: #9fb3d1; font-size: 17px; }
+.particle {
+  position: absolute; width: 9px; height: 9px; border-radius: 50%;
+  pointer-events: none; z-index: 6; box-shadow: 0 0 6px currentColor;
+}
+.particle.spark { width: 7px; height: 7px; }
 .battle-side { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.06); border-radius: 14px; padding: 10px; margin-bottom: 8px; }
 .enemy-side { flex-direction: row-reverse; }
 .sprite { width: 110px; height: 110px; object-fit: contain; background: #fff; border-radius: 12px; image-rendering: auto; }
