@@ -23,7 +23,9 @@ const PORT = process.env.PORT || 3000;
       const p = path.join(dir, e.name);
       if (e.isDirectory()) { walk(p); continue; }
       if (!e.name.endsWith('.b64')) continue;
-      const rel = path.relative(root, p).replace(/\.b64$/, '.png');
+      // battle-bg.jpg.b64 -> battle-bg.jpg ; tiles.b64 -> tiles.png
+      let rel = path.relative(root, p).replace(/\.b64$/, '');
+      if (!/\.(png|jpg|jpeg|gif|webp)$/i.test(rel)) rel += '.png';
       const dst = path.join(__dirname, 'public', rel);
       fs.mkdirSync(path.dirname(dst), { recursive: true });
       fs.writeFileSync(dst, Buffer.from(fs.readFileSync(p, 'utf8').trim(), 'base64'));
