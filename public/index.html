@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🔥 Sủng Thú Liệt Hỏa</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ ĐĂNG NHẬP / ĐĂNG KÝ ============ -->
+<div id="screen-auth" class="screen">
+  <div class="auth-box">
+    <div class="game-logo">🔥</div>
+    <h1>Sủng Thú Liệt Hỏa</h1>
+    <p class="tagline">Thu phục • Chiến đấu • Tiến hóa</p>
+    <div class="auth-tabs">
+      <button id="tab-login" class="auth-tab active">Đăng nhập</button>
+      <button id="tab-register" class="auth-tab">Đăng ký</button>
+    </div>
+    <form id="form-login">
+      <input id="login-user" placeholder="Tên tài khoản" autocomplete="username" maxlength="20">
+      <input id="login-pass" type="password" placeholder="Mật khẩu" autocomplete="current-password">
+      <button type="submit" class="btn-primary">Vào game</button>
+    </form>
+    <form id="form-register" class="hidden">
+      <input id="reg-user" placeholder="Tên tài khoản (3-20 ký tự: chữ, số, _)" autocomplete="username" maxlength="20">
+      <input id="reg-pass" type="password" placeholder="Mật khẩu (tối thiểu 4 ký tự)" autocomplete="new-password">
+      <button type="submit" class="btn-primary">Tạo tài khoản</button>
+    </form>
+    <div id="auth-err" class="err"></div>
+  </div>
+</div>
+
+<!-- ============ CHỌN PET KHỞI ĐẦU ============ -->
+<div id="screen-starter" class="screen hidden">
+  <div class="starter-wrap">
+    <h2>Chọn pet đồng hành của bạn</h2>
+    <p class="muted">Chọn 1 trong 3 pet khởi đầu (cấp 5)</p>
+    <div id="starter-list" class="starter-list"></div>
+  </div>
+</div>
+
+<!-- ============ BẢN ĐỒ ============ -->
+<div id="screen-game" class="screen hidden">
+  <div class="hud">
+    <span id="hud-user" class="hud-item">👤</span>
+    <span id="hud-coins" class="hud-item">💰 0</span>
+    <span id="hud-traps" class="hud-item">🪤 0</span>
+    <span id="hud-potions" class="hud-item">🧪 0</span>
+  </div>
+  <div class="map-wrap">
+    <canvas id="map" width="640" height="480"></canvas>
+  </div>
+  <div class="controls">
+    <div class="dpad">
+      <button class="dbtn" data-dir="up">▲</button>
+      <div class="dpad-row">
+        <button class="dbtn" data-dir="left">◀</button>
+        <button class="dbtn" data-dir="down">▼</button>
+        <button class="dbtn" data-dir="right">▶</button>
+      </div>
+    </div>
+    <div class="action-btns">
+      <button id="btn-interact" class="btn-action">🔍<small>Tương tác</small></button>
+      <button id="btn-party" class="btn-action">🎒<small>Đội hình</small></button>
+      <button id="btn-box" class="btn-action">📦<small>Hộp</small></button>
+    </div>
+  </div>
+  <div class="menu-row">
+    <button id="btn-help" class="btn-small">❓ Khắc hệ</button>
+    <button id="btn-logout" class="btn-small">🚪 Đăng xuất</button>
+  </div>
+  <div class="hint">Đi vào <b>bụi cỏ</b> để gặp pet hoang • Nhà <b>H</b>: hồi máu miễn phí • Nhà <b>M</b>: cửa hàng</div>
+</div>
+
+<!-- ============ TRẬN ĐẤU ============ -->
+<div id="screen-battle" class="screen hidden">
+  <div class="battle-wrap">
+    <div class="battle-side enemy-side">
+      <img id="b-enemy-sprite" class="sprite enemy" src="" alt="">
+      <div class="battle-info">
+        <div class="pname"><span id="b-enemy-name"></span> <span id="b-enemy-lv" class="lv"></span> <span id="b-enemy-type" class="type-badge"></span></div>
+        <div class="hpbar"><div id="b-enemy-hp" class="hpfill"></div><span id="b-enemy-hptext" class="hptext"></span></div>
+      </div>
+    </div>
+    <div id="battle-log" class="battle-log"></div>
+    <div class="battle-side player-side">
+      <img id="b-player-sprite" class="sprite player" src="" alt="">
+      <div class="battle-info">
+        <div class="pname"><span id="b-player-name"></span> <span id="b-player-lv" class="lv"></span> <span id="b-player-type" class="type-badge"></span></div>
+        <div class="hpbar"><div id="b-player-hp" class="hpfill"></div><span id="b-player-hptext" class="hptext"></span></div>
+        <div class="expbar"><div id="b-player-exp" class="expfill"></div></div>
+      </div>
+    </div>
+    <div id="battle-menu" class="battle-menu">
+      <button class="btn-battle" data-act="fight">⚔️ Đánh</button>
+      <button class="btn-battle" data-act="trap">🪤 Bẫy</button>
+      <button class="btn-battle" data-act="potion">🧪 Túi</button>
+      <button class="btn-battle" data-act="switch">🔄 Đổi pet</button>
+      <button class="btn-battle" data-act="run">🏃 Chạy</button>
+    </div>
+    <div id="battle-sub" class="battle-sub hidden"></div>
+  </div>
+</div>
+
+<!-- ============ MODAL CHUNG ============ -->
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head"><span id="modal-title"></span><button id="modal-close">✕</button></div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
