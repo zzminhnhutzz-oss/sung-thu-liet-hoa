@@ -1,0 +1,1 @@
+{"dependencies":{"bcryptjs":"^3.0.2","connect-mongo":"^5.1.0","express":"^4.19.2","express-session":"^1.18.0","mongodb":"^6.8.0"},"description":"Sủng Thú Liệt Hỏa — game web bắt pet phong cách VQSV (bản MVP, nội dung gốc)","engines":{"node":">=18"},"main":"server.js","name":"sung-thu-liet-hoa","scripts":{"start":"node server.js"},"version":"0.1.0"}
