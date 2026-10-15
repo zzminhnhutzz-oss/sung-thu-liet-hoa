@@ -377,15 +377,53 @@ function setHp(fillEl, textEl, hp, maxHp) {
   textEl.textContent = `${hp}/${maxHp}`;
 }
 
+// Tách nền trắng của sprite pet (flood-fill từ viền) -> trong suốt, có cache
+const _spriteCache = {};
+function setPetSprite(imgEl, src) {
+  if (_spriteCache[src]) { imgEl.src = _spriteCache[src]; return; }
+  const img = new Image();
+  img.onload = () => {
+    try {
+      const w = img.width, h = img.height;
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const x = c.getContext('2d', { willReadFrequently: true });
+      x.drawImage(img, 0, 0);
+      const d = x.getImageData(0, 0, w, h), p = d.data;
+      const seen = new Uint8Array(w * h);
+      const stack = [];
+      for (let bx = 0; bx < w; bx++) { stack.push(bx, bx + (h - 1) * w); }
+      for (let by = 1; by < h - 1; by++) { stack.push(by * w, by * w + w - 1); }
+      while (stack.length) {
+        const idx = stack.pop();
+        if (seen[idx]) continue;
+        seen[idx] = 1;
+        const i4 = idx * 4;
+        if (!(p[i4] > 240 && p[i4 + 1] > 240 && p[i4 + 2] > 240)) continue;
+        p[i4 + 3] = 0;
+        const px = idx % w, py = (idx / w) | 0;
+        if (px > 0) stack.push(idx - 1);
+        if (px < w - 1) stack.push(idx + 1);
+        if (py > 0) stack.push(idx - w);
+        if (py < h - 1) stack.push(idx + w);
+      }
+      x.putImageData(d, 0, 0);
+      _spriteCache[src] = c.toDataURL();
+    } catch (e) { _spriteCache[src] = src; }
+    imgEl.src = _spriteCache[src];
+  };
+  img.onerror = () => { imgEl.src = src; };
+  img.src = src;
+}
+
 function renderBattle() {
   const E = B.enemy, P = B.player;
-  $('b-enemy-sprite').src = E.sprite;
+  setPetSprite($('b-enemy-sprite'), E.sprite);
   $('b-enemy-name').textContent = E.name;
   $('b-enemy-lv').textContent = 'Lv' + E.level;
   const et = $('b-enemy-type'); et.textContent = E.typeName; et.style.background = E.typeColor;
   setHp($('b-enemy-hp'), $('b-enemy-hptext'), E.hp, E.maxHp);
 
-  $('b-player-sprite').src = P.sprite;
+  setPetSprite($('b-player-sprite'), P.sprite);
   $('b-player-name').textContent = P.name;
   $('b-player-lv').textContent = 'Lv' + P.level;
   const pt = $('b-player-type'); pt.textContent = P.typeName; pt.style.background = P.typeColor;
