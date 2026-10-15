@@ -11,6 +11,30 @@ const eng = require('./game/engine');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Giải mã sprite base64 -> PNG khi khởi động.
+// (GitHub MCP không đẩy được file nhị phân nên sprite lưu dạng text base64
+//  trong assets/sprites/*.b64 và được giải mã tại đây.)
+(function decodeSprites() {
+  const fs = require('fs');
+  const path = require('path');
+  const srcDir = path.join(__dirname, 'assets', 'sprites');
+  const dstDir = path.join(__dirname, 'public', 'sprites');
+  try {
+    if (!fs.existsSync(srcDir)) return;
+    if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
+    let n = 0;
+    for (const f of fs.readdirSync(srcDir)) {
+      if (!f.endsWith('.b64')) continue;
+      const dst = path.join(dstDir, f.replace(/\.b64$/, '.png'));
+      fs.writeFileSync(dst, Buffer.from(fs.readFileSync(path.join(srcDir, f), 'utf8').trim(), 'base64'));
+      n++;
+    }
+    if (n) console.log(`[sprites] Đã giải mã ${n} sprite base64 -> PNG`);
+  } catch (e) {
+    console.error('[sprites] Lỗi giải mã:', e.message);
+  }
+})();
+
 app.use(express.json());
 app.use(express.static('public'));
 
