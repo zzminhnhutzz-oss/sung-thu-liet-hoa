@@ -80,7 +80,11 @@ body {
 
 /* ---- Battle ---- */
 #screen-battle { justify-content: flex-start; }
-.battle-wrap { width: 100%; max-width: 560px; }
+.battle-wrap {
+  width: 100%; max-width: 560px;
+  background: url(/tiles/battle-bg.jpg) center/cover no-repeat, rgba(255,255,255,.06);
+  border-radius: 14px; padding: 10px;
+}
 .battle-side { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.06); border-radius: 14px; padding: 10px; margin-bottom: 8px; }
 .enemy-side { flex-direction: row-reverse; }
 .sprite { width: 110px; height: 110px; object-fit: contain; background: #fff; border-radius: 12px; image-rendering: auto; }

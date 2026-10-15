@@ -4,22 +4,23 @@
 const $ = id => document.getElementById(id);
 const TILE = 32;
 
-// Bản đồ (đồng bộ với server)
+// Bản đồ (đồng bộ với server): # cây, . đường, , cỏ, H nhà hồi máu,
+// M cửa hàng, W nước, N dân làng
 const MAP = [
   '####################',
+  '#H..#.N....,,,,,,..#',
   '#H..#......,,,,,,..#',
-  '#H..#......,,,,,,..#',
-  '#...#......,,,,,,..#',
+  '#.N.#......,,,,,,..#',
   '#...####...,,,,,,..#',
   '#...#......,,,,,,..#',
   '#M..#..WW..,,,,,,..#',
   '#...#..WW..,,,,,,..#',
   '#...#......,,,,,,..#',
-  '#..................#',
+  '#....N......N......#',
   '#..,,,,,,,,,,,,,...#',
   '#..,,,,,,,,,,,,,...#',
   '#..,,,,,,,,,,,,,...#',
-  '#..................#',
+  '#......N...........#',
   '####################'
 ];
 
@@ -144,64 +145,177 @@ function renderStarters() {
   };
 }
 
-// ---------------- MAP ----------------
-function drawMap() {
-  const cv = $('map'), ctx = cv.getContext('2d');
-  for (let y = 0; y < MAP.length; y++) {
-    for (let x = 0; x < MAP[y].length; x++) {
-      const t = MAP[y][x], px = x * TILE, py = y * TILE;
-      if (t === '#') { // cây
-        ctx.fillStyle = '#2e7d3f'; ctx.fillRect(px, py, TILE, TILE);
-        ctx.fillStyle = '#5d4037'; ctx.fillRect(px + 13, py + 18, 6, 12);
-        ctx.fillStyle = '#1b5e20';
-        ctx.beginPath(); ctx.arc(px + 16, py + 12, 11, 0, 7); ctx.fill();
-        ctx.fillStyle = '#2e7d32';
-        ctx.beginPath(); ctx.arc(px + 11, py + 15, 7, 0, 7); ctx.fill();
-        ctx.beginPath(); ctx.arc(px + 21, py + 15, 7, 0, 7); ctx.fill();
-      } else if (t === ',') { // cỏ
-        ctx.fillStyle = '#7cc65f'; ctx.fillRect(px, py, TILE, TILE);
-        ctx.strokeStyle = '#5da24a'; ctx.lineWidth = 2;
-        for (let i = 0; i < 4; i++) {
-          const gx = px + ((x * 37 + y * 91 + i * 53) % 26) + 3;
-          const gy = py + ((x * 17 + y * 41 + i * 29) % 24) + 4;
-          ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx, gy - 6); ctx.stroke();
-        }
-      } else if (t === 'W') { // nước
-        ctx.fillStyle = '#3f9fd8'; ctx.fillRect(px, py, TILE, TILE);
-        ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(px + 5, py + 12); ctx.quadraticCurveTo(px + 10, py + 9, px + 15, py + 12); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(px + 17, py + 22); ctx.quadraticCurveTo(px + 22, py + 19, px + 27, py + 22); ctx.stroke();
-      } else { // đường / nền nhà
-        ctx.fillStyle = '#e3c878'; ctx.fillRect(px, py, TILE, TILE);
-        if (t === 'H' || t === 'M') {
-          ctx.fillStyle = '#d99a5b'; ctx.fillRect(px + 4, py + 12, 24, 18); // tường
-          ctx.fillStyle = t === 'H' ? '#c62828' : '#1565c0'; // mái
-          ctx.beginPath(); ctx.moveTo(px + 2, py + 13); ctx.lineTo(px + 16, py + 2); ctx.lineTo(px + 30, py + 13); ctx.fill();
-          ctx.fillStyle = '#4e342e'; ctx.fillRect(px + 13, py + 20, 7, 10); // cửa
-          ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
-          ctx.fillText(t, px + 16, py + 11);
-        }
-      }
-    }
-  }
-  drawPlayer(ctx);
+// ---------------- TILE ART (pixel-art vẽ tay) ----------------
+const TILE_IMGS = {};
+let tilesReady = false;
+
+function loadTiles() {
+  const defs = {
+    sheet: '/tiles/tiles.png',
+    chars: '/tiles/chars.png',
+    houseHeal: '/tiles/house-heal.png',
+    houseShop: '/tiles/house-shop.png'
+  };
+  const loaded = {};
+  let n = 0;
+  const keys = Object.keys(defs);
+  keys.forEach(k => {
+    const img = new Image();
+    const done = () => { if (++n === keys.length) prepareTiles(loaded); };
+    img.onload = () => { loaded[k] = img; done(); };
+    img.onerror = done;
+    img.src = defs[k];
+  });
 }
 
-function drawPlayer(ctx) {
+// Tách nền magenta -> trong suốt
+function keyOut(img) {
+  const c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(img, 0, 0);
+  const d = x.getImageData(0, 0, c.width, c.height);
+  const p = d.data;
+  for (let i = 0; i < p.length; i += 4) {
+    if (p[i] > 140 && p[i + 1] < 110 && p[i + 2] > 140) p[i + 3] = 0;
+  }
+  x.putImageData(d, 0, 0);
+  return c;
+}
+
+// Cắt sheet thành các ô: cols x rows
+function sliceSheet(src, cols, rows) {
+  const w = src.width / cols, h = src.height / rows;
+  const out = [];
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++) {
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(src, c * w, r * h, w, h, 0, 0, w, h);
+      out.push(cv);
+    }
+  return out;
+}
+
+function prepareTiles(L) {
+  try {
+    if (L.sheet) {
+      // thứ tự ô trong sheet 3x2: cỏ, đường, cây / nước, hoa, bụi
+      const cells = sliceSheet(L.sheet, 3, 2);
+      TILE_IMGS.grass = cells[0]; TILE_IMGS.path = cells[1];
+      TILE_IMGS.tree = cells[2]; TILE_IMGS.water = cells[3];
+      TILE_IMGS.flower = cells[4]; TILE_IMGS.bush = cells[5];
+    }
+    if (L.chars) {
+      const parts = sliceSheet(keyOut(L.chars), 4, 1);
+      TILE_IMGS.player = parts[0];
+      TILE_IMGS.npcs = [parts[1], parts[2], parts[3]];
+    }
+    if (L.houseHeal) TILE_IMGS.houseHeal = keyOut(L.houseHeal);
+    if (L.houseShop) TILE_IMGS.houseShop = keyOut(L.houseShop);
+    tilesReady = !!(TILE_IMGS.grass && TILE_IMGS.player);
+  } catch (e) { console.warn('tile art lỗi:', e); }
+  drawMap();
+}
+
+// ---------------- MAP ----------------
+function drawTileClassic(ctx, t, px, py, x, y) {
+  if (t === '#') {
+    ctx.fillStyle = '#2e7d3f'; ctx.fillRect(px, py, TILE, TILE);
+    ctx.fillStyle = '#5d4037'; ctx.fillRect(px + 13, py + 18, 6, 12);
+    ctx.fillStyle = '#1b5e20';
+    ctx.beginPath(); ctx.arc(px + 16, py + 12, 11, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2e7d32';
+    ctx.beginPath(); ctx.arc(px + 11, py + 15, 7, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(px + 21, py + 15, 7, 0, 7); ctx.fill();
+  } else if (t === ',') {
+    ctx.fillStyle = '#7cc65f'; ctx.fillRect(px, py, TILE, TILE);
+    ctx.strokeStyle = '#5da24a'; ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i++) {
+      const gx = px + ((x * 37 + y * 91 + i * 53) % 26) + 3;
+      const gy = py + ((x * 17 + y * 41 + i * 29) % 24) + 4;
+      ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx, gy - 6); ctx.stroke();
+    }
+  } else if (t === 'W') {
+    ctx.fillStyle = '#3f9fd8'; ctx.fillRect(px, py, TILE, TILE);
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(px + 5, py + 12); ctx.quadraticCurveTo(px + 10, py + 9, px + 15, py + 12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px + 17, py + 22); ctx.quadraticCurveTo(px + 22, py + 19, px + 27, py + 22); ctx.stroke();
+  } else {
+    ctx.fillStyle = '#e3c878'; ctx.fillRect(px, py, TILE, TILE);
+    if (t === 'H' || t === 'M' || t === 'N') {
+      ctx.fillStyle = '#d99a5b'; ctx.fillRect(px + 4, py + 12, 24, 18);
+      ctx.fillStyle = t === 'H' ? '#c62828' : t === 'M' ? '#1565c0' : '#7b1fa2';
+      ctx.beginPath(); ctx.moveTo(px + 2, py + 13); ctx.lineTo(px + 16, py + 2); ctx.lineTo(px + 30, py + 13); ctx.fill();
+      ctx.fillStyle = '#4e342e'; ctx.fillRect(px + 13, py + 20, 7, 10);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(t, px + 16, py + 11);
+    }
+  }
+}
+
+function drawPlayerClassic(ctx) {
   const px = S.pos.x * TILE + 16, py = S.pos.y * TILE + 16;
   ctx.fillStyle = 'rgba(0,0,0,.25)';
   ctx.beginPath(); ctx.ellipse(px, py + 13, 9, 4, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = '#3b82f6'; // áo
+  ctx.fillStyle = '#3b82f6';
   ctx.beginPath(); ctx.roundRect(px - 8, py - 2, 16, 14, 5); ctx.fill();
-  ctx.fillStyle = '#ffd9b3'; // đầu
+  ctx.fillStyle = '#ffd9b3';
   ctx.beginPath(); ctx.arc(px, py - 9, 8, 0, 7); ctx.fill();
-  ctx.fillStyle = '#e53935'; // mũ
+  ctx.fillStyle = '#e53935';
   ctx.beginPath(); ctx.arc(px, py - 11, 8, Math.PI, 0); ctx.fill();
   ctx.fillRect(px - 8, py - 13, 16, 3);
-  ctx.fillStyle = '#1a1a1a'; // mắt
+  ctx.fillStyle = '#1a1a1a';
   const ex = S.facing === 'left' ? -2 : S.facing === 'right' ? 2 : 0;
   ctx.beginPath(); ctx.arc(px - 3 + ex, py - 8, 1.3, 0, 7); ctx.fill();
   ctx.beginPath(); ctx.arc(px + 3 + ex, py - 8, 1.3, 0, 7); ctx.fill();
+}
+
+function drawMap() {
+  const cv = $('map'), ctx = cv.getContext('2d');
+  const T = TILE_IMGS;
+  if (!tilesReady) {
+    for (let y = 0; y < MAP.length; y++)
+      for (let x = 0; x < MAP[y].length; x++)
+        drawTileClassic(ctx, MAP[y][x], x * TILE, y * TILE, x, y);
+    drawPlayerClassic(ctx);
+    return;
+  }
+  let npcIdx = 0;
+  for (let y = 0; y < MAP.length; y++) {
+    for (let x = 0; x < MAP[y].length; x++) {
+      const t = MAP[y][x], px = x * TILE, py = y * TILE;
+      // nền
+      if (t === ',') ctx.drawImage(T.grass, px, py, TILE, TILE);
+      else if (t === 'W') ctx.drawImage(T.water, px, py, TILE, TILE);
+      else if (t === '#') ctx.drawImage(T.tree, px, py, TILE, TILE);
+      else ctx.drawImage(T.path, px, py, TILE, TILE);
+      // hoa/bụi rải rác trên cỏ
+      if (t === ',') {
+        const h = (x * 37 + y * 91) % 11;
+        if (h === 0 && T.flower) ctx.drawImage(T.flower, px, py, TILE, TILE);
+        else if (h === 5 && T.bush) ctx.drawImage(T.bush, px, py, TILE, TILE);
+      }
+      // nhà hồi máu: 2 ô dọc, vẽ phủ từ ô trên
+      if (t === 'H' && y + 1 < MAP.length && MAP[y + 1][x] === 'H' && T.houseHeal) {
+        ctx.drawImage(T.houseHeal, px - 6, py - 34, TILE + 12, TILE * 2 + 34);
+      }
+      // cửa hàng: 1 ô
+      if (t === 'M' && T.houseShop) {
+        ctx.drawImage(T.houseShop, px - 8, py - 30, TILE + 16, TILE + 30);
+      }
+      // dân làng
+      if (t === 'N' && T.npcs) {
+        const npc = T.npcs[npcIdx++ % T.npcs.length];
+        ctx.drawImage(npc, px + 1, py - 14, TILE - 2, TILE + 14);
+      }
+    }
+  }
+  // nhân vật chính
+  const px = S.pos.x * TILE, py = S.pos.y * TILE;
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  ctx.beginPath(); ctx.ellipse(px + 16, py + 27, 9, 4, 0, 0, 7); ctx.fill();
+  ctx.drawImage(T.player, px + 1, py - 12, TILE - 2, TILE + 12);
 }
 
 async function move(dir) {
@@ -507,6 +621,7 @@ $('btn-help').onclick = async () => {
 
 // ---------------- BOOT ----------------
 (async function boot() {
+  loadTiles(); // tải tile art (xong tự vẽ lại map)
   const me = await api('/api/auth/me');
   if (me && !me.error) await loadState();
   else show('screen-auth');

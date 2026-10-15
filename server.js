@@ -11,28 +11,27 @@ const eng = require('./game/engine');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Giải mã sprite base64 -> PNG khi khởi động.
-// (GitHub MCP không đẩy được file nhị phân nên sprite lưu dạng text base64
-//  trong assets/sprites/*.b64 và được giải mã tại đây.)
-(function decodeSprites() {
+// Giải mã assets base64 -> PNG khi khởi động.
+// (GitHub MCP không đẩy được file nhị phân nên ảnh lưu dạng text base64
+//  trong assets/**.b64 và được giải mã tại đây, giữ đúng cấu trúc thư mục.)
+(function decodeAssets() {
   const fs = require('fs');
   const path = require('path');
-  const srcDir = path.join(__dirname, 'assets', 'sprites');
-  const dstDir = path.join(__dirname, 'public', 'sprites');
-  try {
-    if (!fs.existsSync(srcDir)) return;
-    if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
-    let n = 0;
-    for (const f of fs.readdirSync(srcDir)) {
-      if (!f.endsWith('.b64')) continue;
-      const dst = path.join(dstDir, f.replace(/\.b64$/, '.png'));
-      fs.writeFileSync(dst, Buffer.from(fs.readFileSync(path.join(srcDir, f), 'utf8').trim(), 'base64'));
-      n++;
+  const root = path.join(__dirname, 'assets');
+  function walk(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (!e.name.endsWith('.b64')) continue;
+      const rel = path.relative(root, p).replace(/\.b64$/, '.png');
+      const dst = path.join(__dirname, 'public', rel);
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      fs.writeFileSync(dst, Buffer.from(fs.readFileSync(p, 'utf8').trim(), 'base64'));
     }
-    if (n) console.log(`[sprites] Đã giải mã ${n} sprite base64 -> PNG`);
-  } catch (e) {
-    console.error('[sprites] Lỗi giải mã:', e.message);
   }
+  try {
+    if (fs.existsSync(root)) { walk(root); console.log('[assets] Đã giải mã assets base64 -> public/'); }
+  } catch (e) { console.error('[assets] Lỗi giải mã:', e.message); }
 })();
 
 app.use(express.json());
@@ -248,7 +247,7 @@ app.post('/api/game/move', needLogin, async (req, res) => {
     const nx = user.pos.x + d[0], ny = user.pos.y + d[1];
     const row = D.MAP[ny];
     const tile = row ? row[nx] : undefined;
-    if (!tile || '#HWM'.includes(tile))
+    if (!tile || '#HWMN'.includes(tile))
       return res.json({ ok: false, x: user.pos.x, y: user.pos.y });
 
     await store.updateUser(userId, { pos: { x: nx, y: ny } });
