@@ -77,22 +77,24 @@
 <!-- ============ TRẬN ĐẤU ============ -->
 <div id="screen-battle" class="screen hidden">
   <div class="battle-wrap">
-    <div class="battle-side enemy-side">
-      <img id="b-enemy-sprite" class="sprite enemy" src="" alt="">
-      <div class="battle-info">
-        <div class="pname"><span id="b-enemy-name"></span> <span id="b-enemy-lv" class="lv"></span> <span id="b-enemy-type" class="type-badge"></span></div>
-        <div class="hpbar"><div id="b-enemy-hp" class="hpfill"></div><span id="b-enemy-hptext" class="hptext"></span></div>
+    <div class="arena">
+      <div class="fighter foe">
+        <div class="fcard">
+          <div class="pname"><span id="b-enemy-name"></span> <span id="b-enemy-lv" class="lv"></span> <span id="b-enemy-type" class="type-badge"></span></div>
+          <div class="hpbar"><div id="b-enemy-hp" class="hpfill"></div><span id="b-enemy-hptext" class="hptext"></span></div>
+        </div>
+        <img id="b-enemy-sprite" class="psprite" src="" alt="">
+      </div>
+      <div class="fighter me">
+        <div class="fcard">
+          <div class="pname"><span id="b-player-name"></span> <span id="b-player-lv" class="lv"></span> <span id="b-player-type" class="type-badge"></span></div>
+          <div class="hpbar"><div id="b-player-hp" class="hpfill"></div><span id="b-player-hptext" class="hptext"></span></div>
+          <div class="expbar"><div id="b-player-exp" class="expfill"></div></div>
+        </div>
+        <img id="b-player-sprite" class="psprite" src="" alt="">
       </div>
     </div>
     <div id="battle-log" class="battle-log"></div>
-    <div class="battle-side player-side">
-      <img id="b-player-sprite" class="sprite player" src="" alt="">
-      <div class="battle-info">
-        <div class="pname"><span id="b-player-name"></span> <span id="b-player-lv" class="lv"></span> <span id="b-player-type" class="type-badge"></span></div>
-        <div class="hpbar"><div id="b-player-hp" class="hpfill"></div><span id="b-player-hptext" class="hptext"></span></div>
-        <div class="expbar"><div id="b-player-exp" class="expfill"></div></div>
-      </div>
-    </div>
     <div id="battle-menu" class="battle-menu">
       <button class="btn-battle" data-act="fight">⚔️ Đánh</button>
       <button class="btn-battle" data-act="trap">🪤 Bẫy</button>

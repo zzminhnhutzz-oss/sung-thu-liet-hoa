@@ -80,11 +80,28 @@ body {
 
 /* ---- Battle ---- */
 #screen-battle { justify-content: flex-start; }
-.battle-wrap {
-  width: 100%; max-width: 560px;
-  background: url(/tiles/battle-bg.jpg) center/cover no-repeat, rgba(255,255,255,.06);
-  border-radius: 14px; padding: 10px;
+.battle-wrap { width: 100%; max-width: 560px; }
+.arena {
+  position: relative; width: 100%; aspect-ratio: 16/10;
+  background: url(/tiles/arena.jpg) center/cover no-repeat;
+  border-radius: 14px; overflow: hidden; margin-bottom: 8px;
+  box-shadow: inset 0 0 40px rgba(0,0,0,.35);
 }
+.fighter { position: absolute; bottom: 4%; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.fighter.foe { left: 3%; }
+.fighter.me { right: 3%; }
+.fighter .psprite {
+  width: min(128px, 30vw); height: min(128px, 30vw);
+  object-fit: contain; image-rendering: pixelated;
+  filter: drop-shadow(0 8px 8px rgba(0,0,0,.45));
+}
+.fighter.foe .psprite { transform: scaleX(-1); }
+.fcard {
+  background: rgba(8,12,22,.78); border: 1px solid rgba(255,255,255,.28);
+  border-radius: 10px; padding: 6px 10px; min-width: 140px; text-align: center;
+}
+.fcard .pname { color: #fff; font-size: 14px; margin-bottom: 4px; }
+.fcard .lv { color: #ffd54f; }
 .battle-side { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.06); border-radius: 14px; padding: 10px; margin-bottom: 8px; }
 .enemy-side { flex-direction: row-reverse; }
 .sprite { width: 110px; height: 110px; object-fit: contain; background: #fff; border-radius: 12px; image-rendering: auto; }
